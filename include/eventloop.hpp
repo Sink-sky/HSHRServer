@@ -101,6 +101,7 @@ namespace sinksky {
             setNonBlocking(pipefd[1]);
             addfd(pipefd[0]);
             addSig(SIGALRM);
+            addSig(SIGTERM);
         }
 
         void initListen(const char *ip, int port) {

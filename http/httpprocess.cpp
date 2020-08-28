@@ -80,7 +80,7 @@ namespace sinksky {
                 data->checkState = CheckState::CHECK_CONTENT;
                 return HttpCode::GET_REQUEST;
             } else if (std::regex_search(str, regex("^Connection:"))) {
-                if (!std::regex_search(str, regex("keep-alive\\r\\n$"))) {
+                if (!std::regex_search(str, regex("keep-alive\\r\\n$",std::regex::icase))) {
                     data->linger = data->linger && false;
                 }
             } else {

@@ -24,5 +24,6 @@ int main(int argc, char* argv[]) {
                                      eventloop<httpdata>::MAX_EVENT_NUM);
     pool.work<httpprocess>();
     loop.loop(ip, port, &pool);
+    pool.stop();
     return 0;
 }

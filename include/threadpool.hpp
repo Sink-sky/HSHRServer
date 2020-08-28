@@ -13,6 +13,7 @@ namespace sinksky {
     using std::thread;
     using std::unique_lock;
     using std::vector;
+    using std::once_flag;
 
     template <typename Restype>
     class threadpool {
@@ -20,6 +21,8 @@ namespace sinksky {
         const int MAX_THREAD_NUM;
         const int MAX_QUEUE_NUM;
         mutex mtx;
+        bool isrun;
+        once_flag flag;
         condition_variable notEmpty;
         condition_variable notFull;
         queue<Restype> resQueue;
@@ -27,8 +30,10 @@ namespace sinksky {
 
       public:
         threadpool(int threadnum, int queuenum)
-            : MAX_THREAD_NUM(threadnum), MAX_QUEUE_NUM(queuenum), threadGroup(MAX_THREAD_NUM) {}
-        ~threadpool() = default;
+            : isrun(true),MAX_THREAD_NUM(threadnum), MAX_QUEUE_NUM(queuenum), threadGroup(MAX_THREAD_NUM) {}
+        ~threadpool(){
+            stop();
+        }
         threadpool(const threadpool&) = delete;
         threadpool& operator=(const threadpool&) = delete;
 
@@ -36,16 +41,34 @@ namespace sinksky {
 
         bool isEmpty() { return resQueue.empty(); }
 
+        void stop(){
+            std::call_once(flag,[this](){
+                {
+                    lock_guard<mutex> locker(mtx);
+                    isrun = false;
+                }
+                notEmpty.notify_all();
+                notFull.notify_all();
+                for(int i = 0; i <MAX_THREAD_NUM ;++i){
+                    threadGroup[i]->join();
+                }
+            });
+        }
+
         void add(Restype res) {
             unique_lock<mutex> locker(mtx);
-            notFull.wait(locker, [this] { return !isFull(); });
+            notFull.wait(locker, [this] { return !isFull() || !isrun; });
+            if (!isrun)
+                return ;
             resQueue.push(res);
             notEmpty.notify_one();
         }
 
         Restype take() {
             unique_lock<mutex> locker(mtx);
-            notEmpty.wait(locker, [this] { return !isEmpty(); });
+            notEmpty.wait(locker, [this] { return !isEmpty() || !isrun; });
+            if (!isrun)
+                return nullptr;
             Restype res = resQueue.front();
             resQueue.pop();
             notFull.notify_one();
@@ -54,8 +77,11 @@ namespace sinksky {
 
         template <typename Processtype>
         void task() {
-            while (true) {
+            while (isrun) {
                 Restype res = take();
+                if (res == nullptr){
+                    continue;
+                }
                 Processtype(res).process();
             }
         }
@@ -65,7 +91,6 @@ namespace sinksky {
             for (int i = 0; i < MAX_THREAD_NUM; ++i) {
                 threadGroup[i]
                     = std::make_unique<thread>((&threadpool<Restype>::task<Processtype>), this);
-                threadGroup[i]->detach();
             }
         }
     };
