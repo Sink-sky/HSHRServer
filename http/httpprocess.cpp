@@ -30,7 +30,7 @@ namespace sinksky {
 
         LineState parseLine(const char *&start, cmatch *match) {
             httpdata *data = conndata->data.get();
-            if (std::regex_search(start, *match, regex("^[\\s\\S]*?\r\n"))) {
+            if (std::regex_search(start, *match, regex("^.*?\r\n"))) {
                 start = (*match)[0].second;
                 return LineState::LINE_OK;
             }
@@ -45,7 +45,7 @@ namespace sinksky {
         HttpCode parseRequestLine(const char *str) {
             httpdata *data = conndata->data.get();
             cmatch match;
-            if (!std::regex_search(str, match, regex("^[\\S]*?\\s"))) {
+            if (!std::regex_search(str, match, regex("^.*? "))) {
                 return HttpCode::BAD_REQUEST;
             }
             str = match[0].second;
@@ -55,7 +55,7 @@ namespace sinksky {
                 return HttpCode::BAD_REQUEST;
             }
 
-            if (!std::regex_search(str, match, regex("^[\\S]*?\\s"))) {
+            if (!std::regex_search(str, match, regex("^.*? "))) {
                 return HttpCode::BAD_REQUEST;
             }
             str = match[0].second;
@@ -63,7 +63,7 @@ namespace sinksky {
 
             if (data->url.substr(0, 1) != "/") return HttpCode::BAD_REQUEST;
 
-            if (!std::regex_search(str, match, regex("^[\\S]*?\\r\\n"))) {
+            if (!std::regex_search(str, match, regex("^.*?\r\n"))) {
                 return HttpCode::BAD_REQUEST;
             }
             if (match[0].str().compare(0, sizeof("HTTP/1.1") - 1, "HTTP/1.1")) {
