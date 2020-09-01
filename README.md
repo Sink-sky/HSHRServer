@@ -57,7 +57,9 @@ HTTP 1000客户端60秒长连接
 
 - TimerManage和HttpProcess是模块分离的,那如何解决多线程下Connfd对于TimerManage和HttpProcess资源访问有效性的冲突?
 
-可以使用shared_ptr使Eventloop和Threadpool同时持有Connfd,或unique_ptr在两者之间转移.但这里选择了更加语义化的做法,Eventloop管理着所有连接,是连接的所有者,Eventloop在事件就绪时会更新Timer,如果在3*TIMESLOT的时间内还不能完成一个事件请求(包括从队列中等待),那可能服务器处理这个请求的过程就存在一些问题.(但这导致服务器并不健壮......)而TimerManage只所有并使用Timer,HttpProcess将Timer的vaild标志设为false,即可.
+> 可以使用shared_ptr使Eventloop和Threadpool同时持有Connfd,或unique_ptr在两者之间转移.但这里选择了更加语义化的做法,Eventloop管理着所有连接,是连接的所有者,Eventloop在事件就绪时会更新Timer,如果在3*TIMESLOT的时间内还不能完成一个事件请求(包括从队列中等待),那可能服务器处理这个请求的过程就存在一些问题.(但这导致服务器并不健壮......)而TimerManage只所有并使用Timer,HttpProcess将Timer的vaild标志设为false,即可.
+
+**Update:** 这确实是个欠妥的设计,大文件传输超过15秒将会引起问题...现在的想法则是Eventloop提供一个同步队列,更新Timer同样是在主线程进行(更新Timer需要操作定时堆,多线程情况下需要加锁,导致主线程不能及时处理Listenfd),工作线程面对短连接直接关闭,将需要设置超时关闭的长连接信息放入消息队列,让主线程来完成对时间堆的操作.
 
 ## 🥰Thanks
 
